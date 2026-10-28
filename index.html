@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Góc Học Tập</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1> Học nữa học mãi, không học chỉ có ăn....</h1>
+      <p>Tải bộ đề của bạn lên để ôn tập!!</p>
+    </header>
+
+    <!-- BỐ CỤC 2 CỘT: cột trái (side) + cột phải (main) -->
+    <div class="layout">
+
+      <!-- ===== CỘT TRÁI ===== -->
+      <aside class="side">
+        <!-- Đồng hồ tập trung (luôn hiển thị) -->
+        <div id="focus" class="card">
+          <div class="modes">
+            <button class="mode active" data-minutes="50">Tập trung</button>
+            <button class="mode" data-minutes="5">Nghỉ ngắn</button>
+            <button class="mode" data-minutes="15">Nghỉ dài</button>
+          </div>
+          <div class="ring">
+            <svg viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="54"></circle>
+              <circle class="ring-bar" id="ringBar" cx="60" cy="60" r="54"></circle>
+            </svg>
+            <div class="time" id="timeText">50:00</div>
+          </div>
+          <div class="actions">
+            <button id="startBtn" class="primary">Bắt đầu</button>
+            <button id="resetBtn" class="ghost">Đặt lại</button>
+          </div>
+          <p class="hint">Phiên đã xong: <b id="sessionCount">0</b> · Phím tắt: Space</p>
+        </div>
+
+        <!-- Tải bài lên -->
+        <div class="card upload">
+          <h3>📤 Tải bài của bạn</h3>
+          <label class="drop" for="fileInput">
+            <span>Chọn file <b>.docx</b>, <b>.txt</b> hoặc <b>.json</b></span>
+            <input type="file" id="fileInput" accept=".docx,.txt,.json">
+          </label>
+          <p class="msg" id="uploadMsg"></p>
+          <details>
+            <summary>Xem định dạng file mẫu</summary>
+<pre>Tỷ số D/E đo lường điều gì?
+A. Khả năng sinh lời
+B. Mức độ dùng đòn bẩy
+C. Thanh toán nhanh
+D. Vòng quay hàng tồn kho
+Đáp án: B
+
+File Word (.docx): gõ y hệt như trên,
+mỗi dòng là 1 đoạn. Mỗi câu kết thúc
+bằng dòng "Đáp án: ...".
+
+Hoặc file .json:
+[{"q":"...","options":["A","B","C","D"],"answer":"B"}]</pre>
+          </details>
+        </div>
+      </aside>
+
+      <!-- ===== CỘT PHẢI ===== -->
+      <main>
+        <nav class="tabs">
+          <button class="tab active" data-tab="quiz">📝 Trắc nghiệm</button>
+          <button class="tab" data-tab="cards">🃏 Thẻ ghi nhớ</button>
+        </nav>
+
+        <!-- TAB: Trắc nghiệm -->
+        <section id="quiz" class="panel active">
+          <div class="card quiz-card">
+            <div class="quiz-top">
+              <select id="setSelect" aria-label="Chọn bộ đề"></select>
+              <button id="deleteSetBtn" class="ghost small" hidden>Xóa bộ đề</button>
+            </div>
+            <div class="quiz-settings">
+              <label>Số câu <input type="number" id="limitInput" min="1"></label>
+              <label class="check"><input type="checkbox" id="shuffleInput"> Trộn ngẫu nhiên</label>
+            </div>
+            <div class="progress"><div id="quizBar"></div></div>
+            <p class="count" id="quizCount"></p>
+
+            <div id="quizBody">
+              <h2 id="quizQuestion"></h2>
+              <div id="quizOptions" class="options"></div>
+              <div class="actions end">
+                <button id="quizNextBtn" class="primary" hidden>Câu tiếp →</button>
+              </div>
+            </div>
+
+            <div id="quizResult" class="result" hidden>
+              <div class="score" id="quizScore"></div>
+              <p id="quizComment"></p>
+              <div class="actions">
+                <button id="quizRetryBtn" class="primary">Làm lại</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB: Thẻ ghi nhớ -->
+        <section id="cards" class="panel">
+          <div class="card">
+            <div class="progress"><div id="progressBar"></div></div>
+            <p class="count" id="cardCount"></p>
+            <div class="flip" id="flipCard" tabindex="0" role="button" aria-label="Lật thẻ">
+              <div class="inner">
+                <div class="face front" id="cardFront"></div>
+                <div class="face back" id="cardBack"></div>
+              </div>
+            </div>
+            <div class="actions">
+              <button id="prevBtn" class="ghost">← Trước</button>
+              <button id="knownBtn" class="primary">✓ Đã thuộc</button>
+              <button id="nextBtn" class="ghost">Sau →</button>
+            </div>
+            <p class="hint">Bấm vào thẻ hoặc nhấn Enter để lật · dùng phím ← →</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Thư viện miễn phí để đọc file Word ngay trên trình duyệt (không cần API key) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
