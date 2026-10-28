@@ -463,7 +463,7 @@ function showResult() {
   quizBar.style.width = '100%';
   quizCount.textContent = 'Hoàn thành bộ đề';
   quizScore.textContent = score + '/' + total;
-  quizComment.textContent = percent >= 80 ? 'Xuất sắc! Bạn nắm bài rất chắc 🎉' : percent >= 50 ? 'Khá tốt, ôn thêm vài câu sai là ổn 👍' : 'Cần ôn lại thêm, thử làm lại nhé 💪';
+  quizComment.textContent = percent >= 80 ? 'Tốt lắm em anh khá khen' : percent >= 50 ? 'Hơi ngu nhưng vẫn ổn 👍' : 'Học lại ôn lại đi thế này hỏng rồi!!';
 }
 
 quizNextBtn.addEventListener('click', () => {
