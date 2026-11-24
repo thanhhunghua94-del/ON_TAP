@@ -9,8 +9,8 @@
 <body>
   <div class="app">
     <header>
-      <h1> Học nữa học mãi, không học chỉ có ăn....</h1>
-      <p>Tải bộ đề của bạn lên để ôn tập!!</p>
+      <h1>🎓 Góc Học Tập</h1>
+      <p>Làm trắc nghiệm, tải bài của bạn lên để tự ôn</p>
     </header>
 
     <!-- BỐ CỤC 2 CỘT: cột trái (side) + cột phải (main) -->
@@ -21,7 +21,7 @@
         <!-- Đồng hồ tập trung (luôn hiển thị) -->
         <div id="focus" class="card">
           <div class="modes">
-            <button class="mode active" data-minutes="50">Tập trung</button>
+            <button class="mode active" data-minutes="25">Tập trung</button>
             <button class="mode" data-minutes="5">Nghỉ ngắn</button>
             <button class="mode" data-minutes="15">Nghỉ dài</button>
           </div>
@@ -30,7 +30,7 @@
               <circle class="ring-bg" cx="60" cy="60" r="54"></circle>
               <circle class="ring-bar" id="ringBar" cx="60" cy="60" r="54"></circle>
             </svg>
-            <div class="time" id="timeText">50:00</div>
+            <div class="time" id="timeText">25:00</div>
           </div>
           <div class="actions">
             <button id="startBtn" class="primary">Bắt đầu</button>
@@ -43,8 +43,8 @@
         <div class="card upload">
           <h3>📤 Tải bài của bạn</h3>
           <label class="drop" for="fileInput">
-            <span>Chọn file <b>.docx</b>, <b>.txt</b> hoặc <b>.json</b></span>
-            <input type="file" id="fileInput" accept=".docx,.txt,.json">
+            <span>Chọn file <b>.docx</b>, <b>.pdf</b>, <b>.txt</b> hoặc <b>.json</b></span>
+            <input type="file" id="fileInput" accept=".docx,.doc,.pdf,.txt,.md,.json">
           </label>
           <p class="msg" id="uploadMsg"></p>
           <details>
@@ -55,14 +55,36 @@ B. Mức độ dùng đòn bẩy
 C. Thanh toán nhanh
 D. Vòng quay hàng tồn kho
 Đáp án: B
+(hoặc chỉ ghi chữ cái đáp án "B" ở dòng
+dưới, hoặc "B (giải thích)"; câu nhiều đáp
+án ghi "ACD" hoặc "A, C, D")
 
-File Word (.docx): gõ y hệt như trên,
-mỗi dòng là 1 đoạn. Mỗi câu kết thúc
-bằng dòng "Đáp án: ...".
+File Word, PDF, txt cũng viết như trên.
+App tự bỏ qua công thức, tiêu đề, câu
+tự luận; chỉ lấy câu trắc nghiệm. Lời
+giải ghi sau "Lời giải chi tiết:" hoặc
+"Explanation:".
 
 Hoặc file .json:
 [{"q":"...","options":["A","B","C","D"],"answer":"B"}]</pre>
           </details>
+        </div>
+
+        <!-- Lời giải bằng AI -->
+        <div class="card upload">
+          <h3>🤖 Lời giải bằng AI</h3>
+          <input type="password" id="aiKeyInput" class="key-input" placeholder="Dán API key vào đây" autocomplete="off" spellcheck="false">
+          <label class="remember"><input type="checkbox" id="aiAuto" checked> Tự tạo lời giải khi câu chưa có (cần key)</label>
+          <label class="remember"><input type="checkbox" id="aiRemember"> Nhớ key trên trình duyệt này</label>
+          <p class="msg" id="aiStatus">Chưa có key.</p>
+          <button id="aiTestBtn" class="ghost small" type="button">Thử kết nối</button>
+          <details>
+            <summary>Tùy chọn nâng cao</summary>
+            <label class="model-row">Hãng <select id="aiProviderSelect"><option value="">Tự nhận diện</option><option value="claude">Claude</option><option value="gemini">Gemini</option></select></label>
+            <label class="model-row">Model <input type="text" id="aiModelInput" placeholder="để trống = mặc định" autocomplete="off"></label>
+            <button id="aiClearBtn" class="ghost small" type="button">Xóa key</button>
+          </details>
+          <p class="hint">Key chỉ lưu trong trình duyệt của bạn và gửi thẳng tới hãng AI. Hỗ trợ key Claude (sk-ant-...) và Gemini (AQ.... hoặc AIza...).</p>
         </div>
       </aside>
 
@@ -86,11 +108,22 @@ Hoặc file .json:
             </div>
             <div class="progress"><div id="quizBar"></div></div>
             <p class="count" id="quizCount"></p>
+            <div id="quizMap" class="qmap"></div>
 
             <div id="quizBody">
               <h2 id="quizQuestion"></h2>
+              <div id="quizImages" class="qimgs" hidden></div>
+              <p id="multiHint" class="multi-hint" hidden></p>
               <div id="quizOptions" class="options"></div>
-              <div class="actions end">
+              <div id="quizExplain" class="explain" hidden>
+                <div class="explain-title" id="explainTitle"></div>
+                <div class="explain-text" id="explainText"></div>
+                <button id="aiExplainBtn" class="ghost small" type="button" hidden>🤖 Tạo lời giải bằng AI</button>
+                <div class="ai-note" id="aiNote" hidden></div>
+              </div>
+              <div class="actions split">
+                <button id="quizPrevBtn" class="ghost">← Câu trước</button>
+                <button id="quizConfirmBtn" class="primary" hidden>✓ Xác nhận đáp án</button>
                 <button id="quizNextBtn" class="primary" hidden>Câu tiếp →</button>
               </div>
             </div>
@@ -100,6 +133,7 @@ Hoặc file .json:
               <p id="quizComment"></p>
               <div class="actions">
                 <button id="quizRetryBtn" class="primary">Làm lại</button>
+                <button id="quizReviewBtn" class="ghost">Xem lại từng câu</button>
               </div>
             </div>
           </div>
@@ -130,6 +164,8 @@ Hoặc file .json:
 
   <!-- Thư viện miễn phí để đọc file Word ngay trên trình duyệt (không cần API key) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+  <!-- Thư viện miễn phí đọc file PDF ngay trên trình duyệt (không cần API key) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
