@@ -210,3 +210,48 @@ select { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radi
 .opt.picked .letter { background: var(--primary); color: white; }
 .opt.picked.correct { border-color: #10b981; background: rgba(16, 185, 129, 0.12); }
 .actions.split .primary:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
+
+/* ===== Luyện câu sai + Sổ câu sai ===== */
+.mode-note { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: rgba(99, 102, 241, 0.12); color: var(--primary); font-size: 13px; font-weight: 600; }
+.quiz-settings .small { margin-left: auto; }
+.markbar { margin-top: 14px; }
+.mark-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mark-info { font-size: 12px; color: var(--muted); }
+#starBtn.on { border-color: #f59e0b; color: #b45309; background: rgba(245, 158, 11, 0.12); }
+.note-input { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); font-size: 14px; line-height: 1.5; resize: vertical; }
+.note-input:focus { outline: 2px solid var(--primary); }
+.note-input[hidden] { display: none; }
+
+.notes-card { text-align: left; }
+.notes-title { font-size: 1.3rem; }
+.notes-card .count { margin: 6px 0 14px; }
+.notes-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.notes-bar select { flex: none; }
+.notes-bar button:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
+.notes-list { display: grid; gap: 14px; }
+.notes-empty { color: var(--muted); font-size: 14px; line-height: 1.6; padding: 18px 4px; text-align: center; }
+.note-card { padding: 16px; border: 1px solid var(--line); border-radius: 16px; border-left: 4px solid #ef4444; }
+.note-card.starred { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+.note-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.note-badges, .note-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge.bad { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.badge.warn { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+.badge.good { background: rgba(16, 185, 129, 0.16); color: #059669; }
+.badge.info { background: rgba(99, 102, 241, 0.14); color: var(--primary); }
+.note-q { font-weight: 700; line-height: 1.55; white-space: pre-line; margin-bottom: 10px; }
+.note-opts { list-style: none; display: grid; gap: 6px; margin-bottom: 10px; }
+.note-opts li { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; }
+.note-opts li.correct { border-color: #10b981; background: rgba(16, 185, 129, 0.12); }
+.note-opts li.wrong { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.note-card details { margin: 0 0 4px; }
+.note-card details .explain-text { margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge.bad { color: #f87171; }
+  :root:not([data-theme="light"]) .badge.warn, :root:not([data-theme="light"]) #starBtn.on { color: #fbbf24; }
+  :root:not([data-theme="light"]) .badge.good { color: #34d399; }
+}
+@media (max-width: 520px) { .quiz-settings .small { margin-left: 0; } }
+
+.mode-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.mode-note .small { margin: 0; padding: 5px 12px; }

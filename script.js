@@ -743,6 +743,7 @@ function renderSetSelect() {
   limitInput.value = '';                                       // trống = làm tất cả
   limitInput.placeholder = 'Tất cả ' + sets[currentSet].questions.length;
   deleteSetBtn.hidden = !!sets[currentSet].builtin; // không cho xóa bộ đề mẫu
+  renderNotes();                                    // sổ câu sai của bộ đề đang chọn
 }
 
 let activeQuestions = []; // các câu sẽ làm trong lần này (đã giới hạn số câu / trộn)
@@ -754,30 +755,41 @@ function loadProgress() {
 }
 const progressStore = loadProgress();   // dạng { "tên bộ đề": {tiến độ}, ... }
 
-function saveProgress() {
+// Chụp lại trạng thái làm bài hiện tại (để lưu, hoặc để cất đi khi chuyển sang luyện câu sai)
+function snapshotProgress() {
   const set = sets[currentSet];
-  progressStore[set.name] = {
+  return {
     total: set.questions.length,                                           // để biết bộ đề có bị thay đổi không
     order: activeOrder,
     answers: Array.from({ length: activeOrder.length }, (_, k) => answers[k] === undefined ? null : answers[k]),
     qIndex: qIndex,
     limit: limitInput.value,
     shuffle: shuffleInput.checked,
-    done: !quizResult.hidden                                               // đang ở màn hình kết quả không
+    done: !quizResult.hidden,                                              // đang ở màn hình kết quả không
+    mode: practiceMode                                                     // đang luyện câu sai? ('' = làm bình thường)
   };
+}
+
+function saveProgress() {
+  const set = sets[currentSet];
+  const snap = snapshotProgress();
+  if (practiceMode && parentProgress) snap.parent = parentProgress;        // bài chính đang làm dở, cất lại để quay về sau
+  progressStore[set.name] = snap;
   progressStore._last = set.name;                                          // nhớ bộ đề đang làm dở
   try { localStorage.setItem('quizProgress', JSON.stringify(progressStore)); } catch (e) {}
 }
 
-// Mở 1 bộ đề: nếu từng làm dở thì khôi phục đúng chỗ đó, chưa làm thì bắt đầu mới
-function openSet() {
-  const set = sets[currentSet];
-  const saved = progressStore[set.name];
-  const valid = saved && saved.total === set.questions.length && Array.isArray(saved.order) &&
+// Tiến độ đã lưu có còn khớp với bộ đề hiện tại không
+function isValidProgress(set, saved) {
+  return !!saved && saved.total === set.questions.length && Array.isArray(saved.order) &&
     saved.order.length > 0 && saved.order.every((i) => i < set.questions.length) && Array.isArray(saved.answers);
-  if (!valid) { startQuiz(); return; }
+}
 
+// Đưa tiến độ đã lưu trở lại màn hình
+function applyProgress(set, saved) {
   multiDraft = {};
+  practiceMode = saved.mode || '';
+  parentProgress = practiceMode && isValidProgress(set, saved.parent) ? saved.parent : null;
   limitInput.value = saved.limit;
   shuffleInput.checked = !!saved.shuffle;
   activeOrder = saved.order;
@@ -787,16 +799,36 @@ function openSet() {
   if (saved.done) showResult(); else showQuestion();
 }
 
-// Bắt đầu làm MỚI (xóa tiến độ cũ của bộ đề này)
-function startQuiz() {
+// Mở 1 bộ đề: nếu từng làm dở thì khôi phục đúng chỗ đó, chưa làm thì bắt đầu mới
+function openSet() {
+  const set = sets[currentSet];
+  const saved = progressStore[set.name];
+  if (!isValidProgress(set, saved)) { startQuiz(); return; }
+  applyProgress(set, saved);
+}
+
+// Quay về bài chính đang làm dở trước khi chuyển sang luyện câu sai
+function resumeMain() {
+  if (parentProgress) applyProgress(sets[currentSet], parentProgress);
+  else { limitInput.value = ''; startQuiz(); }
+}
+
+// Bắt đầu làm MỚI (xóa tiến độ cũ của bộ đề này).
+// Nếu truyền vào customOrder (mảng vị trí câu) thì chỉ làm đúng các câu đó (chế độ luyện câu sai).
+function startQuiz(customOrder, modeLabel) {
   const all = sets[currentSet].questions;
+  const custom = Array.isArray(customOrder) && customOrder.length > 0;
+  if (custom && !practiceMode && activeQuestions.length) parentProgress = snapshotProgress();   // cất bài chính đang làm dở, không để mất
+  if (!custom) parentProgress = null;                                                           // bắt đầu bài mới bình thường
+  practiceMode = custom ? (modeLabel || 'Luyện tập') : '';
 
   // Số câu muốn làm: để trống = tất cả, và không vượt quá số câu có trong bộ đề
-  let limit = parseInt(limitInput.value) || all.length;
+  let limit = custom ? customOrder.length : (parseInt(limitInput.value) || all.length);
   limit = Math.max(1, Math.min(limit, all.length));
-  if (limitInput.value !== '') limitInput.value = limit;
+  if (custom) limitInput.value = '';
+  else if (limitInput.value !== '') limitInput.value = limit;
 
-  const pool = all.map((q, i) => i);   // danh sách vị trí 0, 1, 2, ... của các câu
+  const pool = custom ? customOrder.slice() : all.map((q, i) => i);   // danh sách vị trí các câu sẽ làm
   if (shuffleInput.checked) {
     for (let i = pool.length - 1; i > 0; i--) {  // trộn kiểu Fisher-Yates
       const k = Math.floor(Math.random() * (i + 1));
@@ -861,8 +893,11 @@ function showQuestion() {
   quizNextBtn.textContent = qIndex === total - 1 ? 'Xem kết quả' : 'Câu tiếp →';
 
   quizConfirmBtn.hidden = true;
+  noteOpen = false;
+  updateModeNote();
   if (chosen === undefined) {          // chưa làm: ẩn lời giải và nút "Câu tiếp"
     quizExplain.hidden = true;
+    markBar.hidden = true;
     quizNextBtn.hidden = true;
     if (multi) { quizConfirmBtn.hidden = false; quizConfirmBtn.disabled = draft.length === 0; }
   } else {                             // đã làm (kể cả khi quay lại xem): hiện đáp án và lời giải
@@ -912,6 +947,7 @@ function revealAnswer(chosen) {
   aiNote.hidden = !(item.ai || waiting);
   aiNote.textContent = waiting ? '🤖 Đang nhờ AI viết lời giải...' : (item.ai ? '🤖 Lời giải do AI tạo, có thể chưa chính xác. Hãy đối chiếu giáo trình.' : '');
   quizNextBtn.hidden = false;
+  renderMarkBar();                          // nút đánh dấu + ghi chú cho câu này
   maybeAutoExplain();                       // có key + bật tự động -> tự nhờ AI viết lời giải cho câu này
 }
 
@@ -941,6 +977,7 @@ function chooseAnswer(chosen) {
     return;
   }
   answers[qIndex] = chosen;
+  recordResult(activeQuestions[qIndex], chosen);        // câu sai tự vào Sổ câu sai
   showQuestion();                                       // vẽ lại ở trạng thái "đã trả lời"
 }
 
@@ -948,6 +985,7 @@ quizConfirmBtn.addEventListener('click', () => {
   const draft = multiDraft[qIndex] || [];
   if (answers[qIndex] !== undefined || draft.length === 0) return;
   answers[qIndex] = draft.slice();
+  recordResult(activeQuestions[qIndex], answers[qIndex]);
   showQuestion();
 });
 
@@ -961,6 +999,12 @@ function showResult() {
   quizCount.textContent = 'Hoàn thành bộ đề';
   quizScore.textContent = score + '/' + total;
   quizComment.textContent = percent >= 80 ? 'Xuất sắc! Bạn nắm bài rất chắc 🎉' : percent >= 50 ? 'Khá tốt, ôn thêm vài câu sai là ổn 👍' : 'Cần ôn lại thêm, thử làm lại nhé 💪';
+  const wrongCount = answers.filter((a, i) => !isCorrect(activeQuestions[i], a)).length;
+  quizRetryWrongBtn.hidden = wrongCount === 0;
+  quizRetryWrongBtn.textContent = '🔁 Làm lại ' + wrongCount + ' câu sai';
+  quizFullBtn.hidden = !practiceMode;
+  quizFullBtn.textContent = parentProgress ? '↩ Về bài đang làm' : 'Làm cả bộ đề';
+  updateModeNote();
   renderMap(false);
   saveProgress();
 }
@@ -973,7 +1017,10 @@ quizPrevBtn.addEventListener('click', () => {
   if (qIndex > 0) { qIndex--; showQuestion(); }
 });
 quizReviewBtn.addEventListener('click', () => { qIndex = 0; showQuestion(); });
-document.getElementById('quizRetryBtn').addEventListener('click', startQuiz);
+// "Làm lại": đang luyện câu sai thì luyện lại đúng các câu đó, còn không thì làm lại cả bộ
+document.getElementById('quizRetryBtn').addEventListener('click', () => {
+  if (practiceMode) startQuiz(activeOrder.slice(), practiceMode); else startQuiz();
+});
 
 setSelect.addEventListener('change', () => {
   currentSet = Number(setSelect.value);
@@ -988,6 +1035,286 @@ deleteSetBtn.addEventListener('click', () => {
   currentSet = 0;
   renderSetSelect();
   openSet();
+});
+
+
+// =====================================================
+// 6b. LUYỆN CÂU SAI + SỔ CÂU SAI (đánh dấu, ghi chú)
+// =====================================================
+const quizModeNote = document.getElementById('quizModeNote');
+const quizModeNoteText = document.getElementById('quizModeNoteText');
+const quizRetryWrongBtn = document.getElementById('quizRetryWrongBtn');
+const quizFullBtn = document.getElementById('quizFullBtn');
+const backToMainBtn = document.getElementById('backToMainBtn');
+const quizOpenNotesBtn = document.getElementById('quizOpenNotesBtn');
+const practiceNotesBtn = document.getElementById('practiceNotesBtn');
+const markBar = document.getElementById('markBar');
+const starBtn = document.getElementById('starBtn');
+const noteBtn = document.getElementById('noteBtn');
+const noteInput = document.getElementById('noteInput');
+const notesTabBtn = document.querySelector('.tab[data-tab="notes"]');
+const notesSummary = document.getElementById('notesSummary');
+const notesFilter = document.getElementById('notesFilter');
+const notesList = document.getElementById('notesList');
+const notesPracticeBtn = document.getElementById('notesPracticeBtn');
+const notesClearDoneBtn = document.getElementById('notesClearDoneBtn');
+const notesExportBtn = document.getElementById('notesExportBtn');
+
+let parentProgress = null;   // bài chính đang làm dở (được cất lại khi chuyển sang luyện câu sai)
+let practiceMode = '';   // '' = làm bình thường; chữ = đang luyện (vd "Luyện câu sai")
+let noteOpen = false;    // ô ghi chú đang mở ở câu hiện tại không
+
+// Sổ câu sai lưu theo tên bộ đề: { "tên bộ đề": { "mã câu": {câu hỏi, số lần sai, ⭐, ghi chú...} } }
+function loadNotes() {
+  try { return JSON.parse(localStorage.getItem('quizNotes')) || {}; } catch (e) { return {}; }
+}
+const notesStore = loadNotes();
+function saveNotes() {
+  try { localStorage.setItem('quizNotes', JSON.stringify(notesStore)); } catch (e) {}
+}
+
+// Mã nhận diện 1 câu (dựa vào nội dung, nên trộn câu hay đổi thứ tự vẫn nhận ra đúng câu)
+function qKey(item) {
+  const str = item.q + '|' + item.options.join('|');
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + '-' + str.length.toString(36);
+}
+const getBook = () => notesStore[sets[currentSet].name] || {};
+
+function ensureEntry(item) {
+  const name = sets[currentSet].name;
+  const book = notesStore[name] = notesStore[name] || {};
+  const key = qKey(item);
+  if (!book[key]) {
+    // Chỉ chép chữ (không chép ảnh) để tiết kiệm bộ nhớ; khi xem sẽ lấy bản đầy đủ từ bộ đề
+    book[key] = { q: item.q, options: item.options.slice(), answer: item.answer, explain: item.explain || '',
+                  wrong: 0, right: 0, lastRight: undefined, chosen: null, star: false, note: '', ts: Date.now() };
+  }
+  return book[key];
+}
+
+// Dọn mục trống (không sai, không đánh dấu, không ghi chú)
+function pruneEntry(item) {
+  const book = getBook(), key = qKey(item), e = book[key];
+  if (e && !e.wrong && !e.star && !e.note) delete book[key];
+}
+
+// Gọi mỗi khi người học chốt đáp án 1 câu
+function recordResult(item, chosen) {
+  const book = getBook(), key = qKey(item);
+  if (isCorrect(item, chosen)) {
+    if (book[key]) { book[key].right = (book[key].right || 0) + 1; book[key].lastRight = true; }   // câu từng sai nay đã làm đúng
+  } else {
+    const e = ensureEntry(item);
+    e.wrong++; e.lastRight = false; e.chosen = chosen; e.ts = Date.now();
+    e.explain = item.explain || e.explain;
+  }
+  saveNotes();
+  updateNotesBadge();
+}
+
+function toggleStar(item) {
+  const e = ensureEntry(item);
+  e.star = !e.star;
+  e.ts = Date.now();
+  pruneEntry(item); saveNotes(); updateNotesBadge();
+}
+
+function setNote(item, text) {
+  const e = ensureEntry(item);
+  e.note = text;
+  pruneEntry(item); saveNotes(); updateNotesBadge();
+}
+
+// Các câu cần luyện lại: có đánh dấu ⭐, hoặc đã sai và chưa làm đúng lại
+const needsPractice = (e) => e.star || (e.wrong > 0 && !e.lastRight);
+
+function updateNotesBadge() {
+  const entries = Object.values(getBook());
+  notesTabBtn.textContent = '📒 Sổ câu sai' + (entries.length ? ' (' + entries.length + ')' : '');
+  const n = entries.filter(needsPractice).length;
+  practiceNotesBtn.textContent = '🔁 Luyện câu trong sổ (' + n + ')';
+  practiceNotesBtn.disabled = n === 0;
+}
+
+function updateModeNote() {
+  quizModeNote.hidden = !practiceMode;
+  quizModeNoteText.textContent = '🎯 Đang luyện: ' + practiceMode + ' · ' + activeQuestions.length + ' câu';
+  backToMainBtn.hidden = !parentProgress;                       // có bài chính đang làm dở thì cho quay về
+  if (parentProgress) {
+    const done = parentProgress.answers.filter((a) => a !== null).length;
+    backToMainBtn.textContent = '↩ Về bài đang làm (' + done + '/' + parentProgress.order.length + ')';
+  }
+}
+
+// Thanh "Đánh dấu / Ghi chú" dưới lời giải (hiện sau khi đã trả lời)
+function renderMarkBar() {
+  const item = activeQuestions[qIndex];
+  const e = getBook()[qKey(item)];
+  markBar.hidden = false;
+  starBtn.textContent = e && e.star ? '⭐ Đã đánh dấu cần nhớ' : '☆ Đánh dấu cần nhớ';
+  starBtn.classList.toggle('on', !!(e && e.star));
+  const showNote = noteOpen || !!(e && e.note);
+  noteInput.hidden = !showNote;
+  noteInput.value = e ? e.note : '';
+  noteBtn.textContent = showNote ? '📝 Ghi chú' : '📝 Thêm ghi chú';
+  document.getElementById('markInfo').textContent = isCorrect(item, answers[qIndex])
+    ? '' : 'Câu sai đã được lưu vào "Sổ câu sai".';
+}
+
+starBtn.addEventListener('click', () => { toggleStar(activeQuestions[qIndex]); renderMarkBar(); });
+noteBtn.addEventListener('click', () => { noteOpen = true; renderMarkBar(); noteInput.focus(); });
+noteInput.addEventListener('input', () => setNote(activeQuestions[qIndex], noteInput.value));
+
+// Bắt đầu làm lại các câu (danh sách entries) trong bộ đề hiện tại
+function practiceEntries(entries, label) {
+  const questions = sets[currentSet].questions;
+  const pos = new Map(questions.map((q, i) => [qKey(q), i]));
+  const order = entries.map((e) => pos.get(qKey(e))).filter((i) => i !== undefined);
+  if (order.length === 0) { showMessage('Không có câu nào để luyện (bộ đề có thể đã được thay đổi).', true); return; }
+  tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === 'quiz'));
+  panels.forEach((p) => p.classList.toggle('active', p.id === 'quiz'));
+  startQuiz(order, label);
+}
+
+quizRetryWrongBtn.addEventListener('click', () => {
+  const order = activeOrder.filter((_, k) => !isCorrect(activeQuestions[k], answers[k]));
+  if (order.length) startQuiz(order, 'Làm lại các câu sai');
+});
+quizFullBtn.addEventListener('click', resumeMain);
+backToMainBtn.addEventListener('click', resumeMain);
+quizOpenNotesBtn.addEventListener('click', () => notesTabBtn.click());
+practiceNotesBtn.addEventListener('click', () => practiceEntries(Object.values(getBook()).filter(needsPractice), 'Sổ câu sai'));
+
+// ----- Tab "Sổ câu sai" -----
+function visibleEntries() {
+  const f = notesFilter.value;
+  return Object.entries(getBook())
+    .filter(([k, e]) => f === 'star' ? e.star : f === 'todo' ? (e.wrong > 0 && !e.lastRight) : f === 'done' ? (e.wrong > 0 && e.lastRight) : f === 'note' ? !!e.note : true)
+    .sort((a, b) => b[1].ts - a[1].ts);
+}
+
+function renderNotes() {
+  updateNotesBadge();
+  const book = getBook();
+  const all = Object.values(book);
+  const set = sets[currentSet];
+  const byKey = new Map(set.questions.map((q) => [qKey(q), q]));      // bản đầy đủ (có ảnh, lời giải mới nhất)
+  const list = visibleEntries();
+
+  notesSummary.textContent = 'Bộ đề "' + set.name + '": ' + all.length + ' câu trong sổ · ' +
+    all.filter((e) => e.wrong > 0 && !e.lastRight).length + ' câu chưa làm đúng lại · ' +
+    all.filter((e) => e.star).length + ' câu đã đánh dấu ⭐';
+  notesPracticeBtn.disabled = list.length === 0;
+  notesClearDoneBtn.disabled = !all.some((e) => e.wrong > 0 && e.lastRight && !e.star && !e.note);
+  notesExportBtn.disabled = list.length === 0;
+
+  notesList.innerHTML = '';
+  if (list.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'notes-empty';
+    empty.textContent = all.length === 0
+      ? 'Chưa có câu nào. Câu làm sai sẽ tự động vào đây. Bạn cũng có thể bấm "☆ Đánh dấu cần nhớ" ở bất kỳ câu nào sau khi trả lời.'
+      : 'Không có câu nào khớp bộ lọc này.';
+    notesList.appendChild(empty);
+    return;
+  }
+
+  list.forEach(([key, e]) => {
+    const src = byKey.get(key) || e;                                    // nếu bộ đề đã đổi, dùng bản đã chép trong sổ
+    const correctList = Array.isArray(e.answer) ? e.answer : [e.answer];
+    const wrongList = e.chosen === null || e.chosen === undefined ? [] : (Array.isArray(e.chosen) ? e.chosen : [e.chosen]);
+    const card = document.createElement('article');
+    card.className = 'note-card' + (e.star ? ' starred' : '');
+
+    const head = document.createElement('div');
+    head.className = 'note-head';
+    const badges = document.createElement('div');
+    badges.className = 'note-badges';
+    const addBadge = (text, cls) => { const b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = text; badges.appendChild(b); };
+    if (e.wrong > 0) addBadge('Sai ' + e.wrong + ' lần', 'bad');
+    if (e.wrong > 0) addBadge(e.lastRight ? '✓ Lần gần nhất đúng' : 'Chưa làm đúng lại', e.lastRight ? 'good' : 'warn');
+    if (!e.wrong) addBadge('Tự đánh dấu', 'info');
+    const tools = document.createElement('div');
+    tools.className = 'note-tools';
+    const star = document.createElement('button');
+    star.className = 'ghost small'; star.type = 'button';
+    star.textContent = e.star ? '⭐ Bỏ đánh dấu' : '☆ Đánh dấu';
+    star.addEventListener('click', () => { e.star = !e.star; e.ts = Date.now(); saveNotes(); renderNotes(); });
+    const del = document.createElement('button');
+    del.className = 'ghost small'; del.type = 'button'; del.textContent = '🗑 Xóa';
+    del.addEventListener('click', () => { delete getBook()[key]; saveNotes(); renderNotes(); });
+    tools.append(star, del);
+    head.append(badges, tools);
+
+    const q = document.createElement('div');
+    q.className = 'note-q';
+    q.textContent = src.q;
+    card.append(head, q);
+
+    if (src.img && src.img.length) {
+      const imgs = document.createElement('div');
+      imgs.className = 'qimgs';
+      src.img.forEach((u) => { const im = document.createElement('img'); im.src = u; im.alt = 'Hình minh họa'; imgs.appendChild(im); });
+      card.appendChild(imgs);
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'note-opts';
+    src.options.forEach((text, i) => {
+      const li = document.createElement('li');
+      const right = correctList.includes(i), wrong = wrongList.includes(i) && !right;
+      li.className = right ? 'correct' : wrong ? 'wrong' : '';
+      li.textContent = 'ABCD'[i] + '. ' + text + (right ? '  ✓ đúng' : wrong ? '  ✗ bạn đã chọn' : '');
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+
+    const explain = src.explain || e.explain;
+    if (explain) {
+      const det = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.textContent = 'Xem lời giải';
+      const body = document.createElement('div');
+      body.className = 'explain-text';
+      body.textContent = explain;
+      det.append(sum, body);
+      card.appendChild(det);
+    }
+
+    const note = document.createElement('textarea');
+    note.className = 'note-input';
+    note.rows = 2;
+    note.placeholder = '📝 Ghi chú của bạn (mẹo nhớ, vì sao hay sai...)';
+    note.value = e.note || '';
+    note.addEventListener('input', () => { e.note = note.value; saveNotes(); });
+    card.appendChild(note);
+
+    notesList.appendChild(card);
+  });
+}
+
+notesTabBtn.addEventListener('click', renderNotes);
+notesFilter.addEventListener('change', renderNotes);
+notesPracticeBtn.addEventListener('click', () => practiceEntries(visibleEntries().map((x) => x[1]), 'Sổ câu sai'));
+notesClearDoneBtn.addEventListener('click', () => {
+  const book = getBook();
+  Object.keys(book).forEach((k) => { const e = book[k]; if (e.wrong > 0 && e.lastRight && !e.star && !e.note) delete book[k]; });
+  saveNotes(); renderNotes();
+});
+notesExportBtn.addEventListener('click', () => {
+  const lines = visibleEntries().map(([k, e], n) => {
+    const correct = (Array.isArray(e.answer) ? e.answer : [e.answer]).map((i) => 'ABCD'[i]).join(', ');
+    return (n + 1) + '. ' + e.q + '\n' + e.options.map((o, i) => '   ' + 'ABCD'[i] + '. ' + o).join('\n') + '\n   Đáp án đúng: ' + correct +
+      (e.explain ? '\n   Lời giải: ' + e.explain.replace(/\n/g, ' ') : '') + (e.note ? '\n   Ghi chú của tôi: ' + e.note : '') + (e.star ? '\n   ⭐ Cần nhớ' : '') + '\n';
+  });
+  const blob = new Blob(['SỔ CÂU SAI - ' + sets[currentSet].name + '\n\n' + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'so-cau-sai-' + sets[currentSet].name.replace(/[^\w\-]+/g, '_') + '.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
 

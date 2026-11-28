@@ -93,6 +93,7 @@ Hoặc file .json:
         <nav class="tabs">
           <button class="tab active" data-tab="quiz">📝 Trắc nghiệm</button>
           <button class="tab" data-tab="cards">🃏 Thẻ ghi nhớ</button>
+          <button class="tab" data-tab="notes">📒 Sổ câu sai</button>
         </nav>
 
         <!-- TAB: Trắc nghiệm -->
@@ -105,7 +106,9 @@ Hoặc file .json:
             <div class="quiz-settings">
               <label>Số câu <input type="number" id="limitInput" min="1"></label>
               <label class="check"><input type="checkbox" id="shuffleInput"> Trộn ngẫu nhiên</label>
+              <button id="practiceNotesBtn" class="ghost small" type="button" disabled>🔁 Luyện câu trong sổ (0)</button>
             </div>
+            <div id="quizModeNote" class="mode-note" hidden><span id="quizModeNoteText"></span> <button id="backToMainBtn" class="ghost small" type="button" hidden></button></div>
             <div class="progress"><div id="quizBar"></div></div>
             <p class="count" id="quizCount"></p>
             <div id="quizMap" class="qmap"></div>
@@ -121,6 +124,14 @@ Hoặc file .json:
                 <button id="aiExplainBtn" class="ghost small" type="button" hidden>🤖 Tạo lời giải bằng AI</button>
                 <div class="ai-note" id="aiNote" hidden></div>
               </div>
+              <div id="markBar" class="markbar" hidden>
+                <div class="mark-row">
+                  <button id="starBtn" class="ghost small" type="button">☆ Đánh dấu cần nhớ</button>
+                  <button id="noteBtn" class="ghost small" type="button">📝 Thêm ghi chú</button>
+                  <span id="markInfo" class="mark-info"></span>
+                </div>
+                <textarea id="noteInput" class="note-input" rows="2" placeholder="📝 Ghi chú của bạn (mẹo nhớ, vì sao hay sai...)" hidden></textarea>
+              </div>
               <div class="actions split">
                 <button id="quizPrevBtn" class="ghost">← Câu trước</button>
                 <button id="quizConfirmBtn" class="primary" hidden>✓ Xác nhận đáp án</button>
@@ -132,7 +143,10 @@ Hoặc file .json:
               <div class="score" id="quizScore"></div>
               <p id="quizComment"></p>
               <div class="actions">
-                <button id="quizRetryBtn" class="primary">Làm lại</button>
+                <button id="quizRetryWrongBtn" class="primary" hidden>🔁 Làm lại các câu sai</button>
+                <button id="quizRetryBtn" class="ghost">Làm lại</button>
+                <button id="quizFullBtn" class="ghost" hidden>Làm cả bộ đề</button>
+                <button id="quizOpenNotesBtn" class="ghost">📒 Mở sổ câu sai</button>
                 <button id="quizReviewBtn" class="ghost">Xem lại từng câu</button>
               </div>
             </div>
@@ -156,6 +170,27 @@ Hoặc file .json:
               <button id="nextBtn" class="ghost">Sau →</button>
             </div>
             <p class="hint">Bấm vào thẻ hoặc nhấn Enter để lật · dùng phím ← →</p>
+          </div>
+        </section>
+
+        <!-- TAB: Sổ câu sai -->
+        <section id="notes" class="panel">
+          <div class="card notes-card">
+            <h2 class="notes-title">📒 Sổ câu sai</h2>
+            <p class="count" id="notesSummary"></p>
+            <div class="notes-bar">
+              <select id="notesFilter" aria-label="Lọc câu">
+                <option value="all">Tất cả</option>
+                <option value="todo">Chưa làm đúng lại</option>
+                <option value="done">Đã làm đúng lại</option>
+                <option value="star">Đã đánh dấu ⭐</option>
+                <option value="note">Có ghi chú</option>
+              </select>
+              <button id="notesPracticeBtn" class="primary small" type="button">🔁 Luyện các câu này</button>
+              <button id="notesClearDoneBtn" class="ghost small" type="button">Xóa câu đã làm đúng lại</button>
+              <button id="notesExportBtn" class="ghost small" type="button">⬇ Tải .txt</button>
+            </div>
+            <div id="notesList" class="notes-list"></div>
           </div>
         </section>
       </main>
